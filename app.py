@@ -5,7 +5,7 @@ HAC vs NAI — Clinical Decision Support System (10-Variable ElasticNet Model)
 Veterinary Endocrinology · Differentiation of Hyperadrenocorticism from Non-Adrenal Illness
 Modern High-Clarity UI/UX · Web Streamlit Interface
 """
-import os, json, io, base64
+import os, json, io, base64, textwrap
 import unicodedata
 import numpy as np
 import pandas as pd
@@ -15,6 +15,10 @@ import streamlit as st
 from sklearn.metrics import roc_auc_score, confusion_matrix, roc_curve
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
+
+def render_html(html_str):
+    """Safely renders HTML in Streamlit without triggering Markdown indented code blocks."""
+    st.markdown(textwrap.dedent(html_str).strip(), unsafe_allow_html=True)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 ICON_PATH = os.path.join(BASE, "HAC.png")
@@ -731,35 +735,36 @@ tab1, tab2 = st.tabs([T("tab1"), T("tab2")])
 # ==============================================================================
 with tab1:
     # 1. Unit Selection Box
-    st.markdown(f'<div class="clean-card"><div class="card-title">{T("unit_sys_title")}</div>', unsafe_allow_html=True)
-    upres1 = st.radio(
-        T("unit_sys_title"),
-        ["UK", "US"],
-        index=0,
-        horizontal=True,
-        format_func=lambda x: T("u_uk") if x == "UK" else T("u_us"),
-        label_visibility="collapsed",
-        key="upres1",
-        on_change=_sync_preset1
-    )
+    with st.container(border=True):
+        st.markdown(f"**{T('unit_sys_title')}**")
+        upres1 = st.radio(
+            T("unit_sys_title"),
+            ["UK", "US"],
+            index=0,
+            horizontal=True,
+            format_func=lambda x: T("u_uk") if x == "UK" else T("u_us"),
+            label_visibility="collapsed",
+            key="upres1",
+            on_change=_sync_preset1
+        )
 
-    with st.expander(T("u_adv")):
-        _a1, _a2, _a3, _a4 = st.columns(4)
-        _p1 = UNIT_PRESETS.get(upres1, UNIT_PRESETS["UK"])
-        with _a1:
-            u_cort1 = st.selectbox(T("u_cort_l"), UNIT_CHOICES["cort"],
-                                   index=UNIT_CHOICES["cort"].index(_p1["cort"]), key="ucort1")
-        with _a2:
-            u_crea1 = st.selectbox(T("u_crea_l"), UNIT_CHOICES["crea"],
-                                   index=UNIT_CHOICES["crea"].index(_p1["crea"]), key="ucrea1")
-        with _a3:
-            u_ca1 = st.selectbox(T("u_ca_l"), UNIT_CHOICES["ca"],
-                                 index=UNIT_CHOICES["ca"].index(_p1["ca"]), key="uca1")
-        with _a4:
-            u_counts1 = st.selectbox(T("u_counts_l"), UNIT_CHOICES["counts"],
-                                     index=UNIT_CHOICES["counts"].index(_p1["counts"]), key="ucounts1")
-    units1 = {"cort": u_cort1, "crea": u_crea1, "ca": u_ca1, "counts": u_counts1}
-    st.markdown(f'<div style="font-size:12px; color:#64748B; margin-top:6px;">ℹ️ {T("u_applied_notice")}</div></div>', unsafe_allow_html=True)
+        with st.expander(T("u_adv")):
+            _a1, _a2, _a3, _a4 = st.columns(4)
+            _p1 = UNIT_PRESETS.get(upres1, UNIT_PRESETS["UK"])
+            with _a1:
+                u_cort1 = st.selectbox(T("u_cort_l"), UNIT_CHOICES["cort"],
+                                       index=UNIT_CHOICES["cort"].index(_p1["cort"]), key="ucort1")
+            with _a2:
+                u_crea1 = st.selectbox(T("u_crea_l"), UNIT_CHOICES["crea"],
+                                       index=UNIT_CHOICES["crea"].index(_p1["crea"]), key="ucrea1")
+            with _a3:
+                u_ca1 = st.selectbox(T("u_ca_l"), UNIT_CHOICES["ca"],
+                                     index=UNIT_CHOICES["ca"].index(_p1["ca"]), key="uca1")
+            with _a4:
+                u_counts1 = st.selectbox(T("u_counts_l"), UNIT_CHOICES["counts"],
+                                         index=UNIT_CHOICES["counts"].index(_p1["counts"]), key="ucounts1")
+        units1 = {"cort": u_cort1, "crea": u_crea1, "ca": u_ca1, "counts": u_counts1}
+        st.caption(f"ℹ️ {T('u_applied_notice')}")
 
     # 2. Input Fields grouped into 3 aesthetic clinical cards
     col_lddst, col_cbc, col_bio = st.columns([1, 1, 1.1])
@@ -767,73 +772,61 @@ with tab1:
 
     # Card A: LDDST
     with col_lddst:
-        st.markdown(f"""
-        <div class="clean-card">
-            <div class="card-title">🧪 {T("sec_ldst")}</div>
-            <div class="card-subtitle">{T("sec_ldst_sub")}</div>
-        """, unsafe_allow_html=True)
-        t8_default = "60" if upres1 != "US" else "2.17"
-        t3_default = "80" if upres1 != "US" else "2.90"
-        
-        T3 = st.text_input(f"{T('f_T3')} [{u_cort1}]", value=t3_default, help=f"Intermediate 3-4h test point")
-        T3c = st.checkbox(f"T3 {T('c_cens')} (< {thr1:g})", value=False)
-        st.markdown("<hr style='margin:12px 0; border:none; border-top:1px dashed #E2E8F0;'/>", unsafe_allow_html=True)
-        T8 = st.text_input(f"{T('f_T8')} [{u_cort1}]", value=t8_default, help=f"Reference threshold: {thr1:g} {u_cort1}")
-        T8c = st.checkbox(f"T8 {T('c_cens')} (< {thr1:g})", value=False)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(f"**🧪 {T('sec_ldst')}**")
+            st.caption(T("sec_ldst_sub"))
+            t8_default = "60" if upres1 != "US" else "2.17"
+            t3_default = "80" if upres1 != "US" else "2.90"
+            
+            T3 = st.text_input(f"{T('f_T3')} [{u_cort1}]", value=t3_default, help=f"Intermediate 3-4h test point")
+            T3c = st.checkbox(f"T3 {T('c_cens')} (< {thr1:g})", value=False)
+            st.divider()
+            T8 = st.text_input(f"{T('f_T8')} [{u_cort1}]", value=t8_default, help=f"Reference threshold: {thr1:g} {u_cort1}")
+            T8c = st.checkbox(f"T8 {T('c_cens')} (< {thr1:g})", value=False)
 
     # Card B: CBC / Hematology
     with col_cbc:
-        st.markdown(f"""
-        <div class="clean-card">
-            <div class="card-title">🩸 {T("sec_cbc")}</div>
-            <div class="card-subtitle">{T("sec_cbc_sub")}</div>
-        """, unsafe_allow_html=True)
-        Lymph = st.text_input(f"{T('f_lymph')} [{u_counts1}]", value="1.2")
-        Thr = st.text_input(f"{T('f_thr')} [{u_counts1}]", value="350")
-        Eos = st.text_input(f"{T('f_eos')} [{u_counts1}]", value="0.10")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(f"**🩸 {T('sec_cbc')}**")
+            st.caption(T("sec_cbc_sub"))
+            Lymph = st.text_input(f"{T('f_lymph')} [{u_counts1}]", value="1.2")
+            Thr = st.text_input(f"{T('f_thr')} [{u_counts1}]", value="350")
+            Eos = st.text_input(f"{T('f_eos')} [{u_counts1}]", value="0.10")
 
     # Card C: Biochemistry & Urinalysis & Age
     with col_bio:
-        st.markdown(f"""
-        <div class="clean-card">
-            <div class="card-title">📊 {T("sec_bio")}</div>
-            <div class="card-subtitle">{T("sec_bio_sub")}</div>
-        """, unsafe_allow_html=True)
-        c_b1, c_b2 = st.columns(2)
-        with c_b1:
-            USG = st.text_input(T("f_usg"), value="1.012")
-            USGsup = st.checkbox(T("c_usg"), value=False)
-            crea_def = "80" if upres1 != "US" else "0.90"
-            Crea = st.text_input(f"{T('f_crea')} [{u_crea1}]", value=crea_def)
-        with c_b2:
-            ca_def = "2.70" if upres1 != "US" else "10.8"
-            Ca = st.text_input(f"{T('f_ca')} [{u_ca1}]", value=ca_def)
-            rALKP = st.text_input(T("f_alkp"), value="5.0", help=T("f_alkp_help"))
-            Age = st.text_input(f"{T('f_age')} ({T('years')})", value="9.5")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(f"**📊 {T('sec_bio')}**")
+            st.caption(T("sec_bio_sub"))
+            c_b1, c_b2 = st.columns(2)
+            with c_b1:
+                USG = st.text_input(T("f_usg"), value="1.012")
+                USGsup = st.checkbox(T("c_usg"), value=False)
+                crea_def = "80" if upres1 != "US" else "0.90"
+                Crea = st.text_input(f"{T('f_crea')} [{u_crea1}]", value=crea_def)
+            with c_b2:
+                ca_def = "2.70" if upres1 != "US" else "10.8"
+                Ca = st.text_input(f"{T('f_ca')} [{u_ca1}]", value=ca_def)
+                rALKP = st.text_input(T("f_alkp"), value="5.0", help=T("f_alkp_help"))
+                Age = st.text_input(f"{T('f_age')} ({T('years')})", value="9.5")
 
     # 3. Decision Threshold & Predict Button Bar
-    st.markdown(f"""
-    <div class="clean-card" style="padding:16px 24px;">
-        <div class="card-title">⚙️ {T("threshold_card_title")}</div>
-    """, unsafe_allow_html=True)
-    c_th1, c_th2 = st.columns([3, 1.2])
-    with c_th1:
-        seuil_proba = st.slider(
-            T("threshold_slider_label"),
-            min_value=0.10,
-            max_value=0.90,
-            value=SEUIL_DEFAUT,
-            step=0.01,
-            help=T("threshold_help")
-        )
-    with c_th2:
-        st.write("")
-        st.write("")
-        do_predict = st.button(f"🔍 {T('btn_predict')}", type="primary", use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(f"**⚙️ {T('threshold_card_title')}**")
+        c_th1, c_th2 = st.columns([3, 1.2])
+        with c_th1:
+            seuil_proba = st.slider(
+                T("threshold_slider_label"),
+                min_value=0.10,
+                max_value=0.90,
+                value=SEUIL_DEFAUT,
+                step=0.01,
+                help=T("threshold_help")
+            )
+        with c_th2:
+            st.write("")
+            st.write("")
+            do_predict = st.button(f"🔍 {T('btn_predict')}", type="primary", use_container_width=True)
 
     # 4. Prediction Execution & Diagnostic Rendering
     if do_predict:
@@ -912,7 +905,7 @@ with tab1:
             hist_text = f"Positive (T8 = {_t8show})" if hist_pos else f"Negative (T8 = {_t8show})"
 
         # RENDER DIAGNOSTIC RESULTS
-        st.markdown(f"""
+        render_html(f"""
         <div class="{banner_class}">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
                 <div>
@@ -925,8 +918,6 @@ with tab1:
                     <div style="font-size:12px; font-weight:600; color:#64748B;">Seuil décisionnel : {thr_pct:.1f}%</div>
                 </div>
             </div>
-
-            <!-- Interactive Risk Meter / Probability Gauge -->
             <div class="gauge-container">
                 <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:#334155;">
                     <span>🛡️ NAI (Maladie non surrénalienne)</span>
@@ -944,15 +935,15 @@ with tab1:
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         # Comparative Table & Biological Profiling Columns
         c_diag1, c_diag2 = st.columns([1.1, 1])
 
         with c_diag1:
-            st.markdown(f"""
-            <div class="clean-card">
-                <div class="card-title">⚖️ {T("comp_table_title")}</div>
+            with st.container(border=True):
+                st.markdown(f"**⚖️ {T('comp_table_title')}**")
+                render_html(f"""
                 <table class="comp-table">
                     <thead>
                         <tr>
@@ -984,98 +975,89 @@ with tab1:
                         </tr>
                     </tbody>
                 </table>
-            </div>
-            """, unsafe_allow_html=True)
+                """)
 
         with c_diag2:
-            st.markdown(f"""
-            <div class="clean-card">
-                <div class="card-title">🧬 {T("factors_title")}</div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown(f"**🧬 {T('factors_title')}**")
 
-            # Cortisol Status Pill
-            if np.isfinite(_t8uk) and _t8uk > 27.6:
-                st.markdown(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_lddst_hac")} — T8={_t8show}</span></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_lddst_nai")} — T8={_t8show}</span></div>', unsafe_allow_html=True)
+                # Cortisol Status Pill
+                if np.isfinite(_t8uk) and _t8uk > 27.6:
+                    render_html(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_lddst_hac")} — T8={_t8show}</span></div>')
+                else:
+                    render_html(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_lddst_nai")} — T8={_t8show}</span></div>')
 
-            # Lymphocytes Status Pill
-            if np.isfinite(_lyuk) and _lyuk < 1.0:
-                st.markdown(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_lymph_hac")} — {Lymph} {u_counts1}</span></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_lymph_nai")} — {Lymph} {u_counts1}</span></div>', unsafe_allow_html=True)
+                # Lymphocytes Status Pill
+                if np.isfinite(_lyuk) and _lyuk < 1.0:
+                    render_html(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_lymph_hac")} — {Lymph} {u_counts1}</span></div>')
+                else:
+                    render_html(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_lymph_nai")} — {Lymph} {u_counts1}</span></div>')
 
-            # Platelets Status Pill
-            if np.isfinite(_thuk) and _thuk > 400:
-                st.markdown(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_thr_hac")} — {Thr} {u_counts1}</span></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_thr_nai")} — {Thr} {u_counts1}</span></div>', unsafe_allow_html=True)
+                # Platelets Status Pill
+                if np.isfinite(_thuk) and _thuk > 400:
+                    render_html(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_thr_hac")} — {Thr} {u_counts1}</span></div>')
+                else:
+                    render_html(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_thr_nai")} — {Thr} {u_counts1}</span></div>')
 
-            # Urinalysis USG Pill
-            try:
-                usg_float = float(str(USG).replace(",", "."))
-            except:
-                usg_float = 1.012
-            if not USGsup and usg_float < 1.020:
-                st.markdown(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_usg_hac")} — USG {USG}</span></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_usg_nai")} — USG {"> 1.050" if USGsup else USG}</span></div>', unsafe_allow_html=True)
+                # Urinalysis USG Pill
+                try:
+                    usg_float = float(str(USG).replace(",", "."))
+                except:
+                    usg_float = 1.012
+                if not USGsup and usg_float < 1.020:
+                    render_html(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_usg_hac")} — USG {USG}</span></div>')
+                else:
+                    render_html(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_usg_nai")} — USG {"> 1.050" if USGsup else USG}</span></div>')
 
-            # ALKP Pill
-            try:
-                alkp_float = float(str(rALKP).replace(",", "."))
-            except:
-                alkp_float = 1.0
-            if alkp_float >= 4.0:
-                st.markdown(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_alkp_hac")} — {rALKP}× LSN</span></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_alkp_nai")} — {rALKP}× LSN</span></div>', unsafe_allow_html=True)
-
-            st.markdown("</div>", unsafe_allow_html=True)
+                # ALKP Pill
+                try:
+                    alkp_float = float(str(rALKP).replace(",", "."))
+                except:
+                    alkp_float = 1.0
+                if alkp_float >= 4.0:
+                    render_html(f'<div class="factor-pill hac"><span class="factor-pill-icon">🔴</span><span class="factor-pill-text">{T("fact_alkp_hac")} — {rALKP}× LSN</span></div>')
+                else:
+                    render_html(f'<div class="factor-pill nai"><span class="factor-pill-icon">🟢</span><span class="factor-pill-text">{T("fact_alkp_nai")} — {rALKP}× LSN</span></div>')
 
 # ==============================================================================
 # TAB 2: BATCH / COHORT FILE PROCESSING
 # ==============================================================================
 with tab2:
-    st.markdown(f"""
-    <div class="clean-card">
-        <div class="card-title">📁 {T("tab2_title")}</div>
-        <div class="card-subtitle">{T("tab2_intro")}</div>
-    """, unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(f"**📁 {T('tab2_title')}**")
+        st.caption(T("tab2_intro"))
 
-    # Template generator: choose units, edit rows, download
-    _tu = st.radio(T("tmpl_unit_label"), ["UK", "US"], index=0, horizontal=True,
-                   format_func=lambda x: T("u_uk") if x == "UK" else T("u_us"),
-                   key="tmpl_unit")
-    _tdf = build_template_df(_tu, st.session_state.lang)
-    _edited = st.data_editor(_tdf, num_rows="dynamic", use_container_width=True,
-                             key=f"tmpl_editor_{_tu}_{st.session_state.lang}")
-    st.caption(T("tmpl_edit_hint"))
-    _tbuf = io.BytesIO(); _edited.to_csv(_tbuf, index=False)
-    st.download_button(T("btn_tmpl_download"), _tbuf.getvalue(),
-                       f"template_HAC_NAI_{_tu}.csv", "text/csv", use_container_width=True)
+        # Template generator: choose units, edit rows, download
+        _tu = st.radio(T("tmpl_unit_label"), ["UK", "US"], index=0, horizontal=True,
+                       format_func=lambda x: T("u_uk") if x == "UK" else T("u_us"),
+                       key="tmpl_unit")
+        _tdf = build_template_df(_tu, st.session_state.lang)
+        _edited = st.data_editor(_tdf, num_rows="dynamic", use_container_width=True,
+                                 key=f"tmpl_editor_{_tu}_{st.session_state.lang}")
+        st.caption(T("tmpl_edit_hint"))
+        _tbuf = io.BytesIO(); _edited.to_csv(_tbuf, index=False)
+        st.download_button(T("btn_tmpl_download"), _tbuf.getvalue(),
+                           f"template_HAC_NAI_{_tu}.csv", "text/csv", use_container_width=True)
 
-    with st.expander(f"🖼️ {T('guide_exp')}"):
-        _gp = os.path.join(BASE, f"guide_csv_structure_{st.session_state.lang}.png")
-        if os.path.exists(_gp):
-            st.image(_gp, use_container_width=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
+        with st.expander(f"🖼️ {T('guide_exp')}"):
+            _gp = os.path.join(BASE, f"guide_csv_structure_{st.session_state.lang}.png")
+            if os.path.exists(_gp):
+                st.image(_gp, use_container_width=True)
 
     # Unit & Calibration Options for File
-    st.markdown(f'<div class="clean-card"><div class="card-title">⚙️ {T("u_file")}</div>', unsafe_allow_html=True)
-    _uc1, _uc2, _uc3 = st.columns([1.2, 1.5, 1])
-    with _uc1:
-        upres2 = st.radio(T("u_file"), ["UK", "US"], index=0, horizontal=True,
-                          format_func=lambda x: T("u_uk") if x == "UK" else T("u_us"), key="upres2", label_visibility="collapsed")
-    with _uc2:
-        seuil2 = st.slider(T("slider2"), 0.1, 0.9, SEUIL_DEFAUT, 0.01, key="s2")
-    with _uc3:
-        recal_opt = st.selectbox(T("recal_lab"), [T("r_auto"), T("r_seuil"), T("r_platt"), T("r_none")], index=0)
+    with st.container(border=True):
+        st.markdown(f"**⚙️ {T('u_file')}**")
+        _uc1, _uc2, _uc3 = st.columns([1.2, 1.5, 1])
+        with _uc1:
+            upres2 = st.radio(T("u_file"), ["UK", "US"], index=0, horizontal=True,
+                              format_func=lambda x: T("u_uk") if x == "UK" else T("u_us"), key="upres2", label_visibility="collapsed")
+        with _uc2:
+            seuil2 = st.slider(T("slider2"), 0.1, 0.9, SEUIL_DEFAUT, 0.01, key="s2")
+        with _uc3:
+            recal_opt = st.selectbox(T("recal_lab"), [T("r_auto"), T("r_seuil"), T("r_platt"), T("r_none")], index=0)
 
-    units2 = dict(UNIT_PRESETS.get(upres2, UNIT_PRESETS["UK"]))
-    thr2disp = CORT_SEUIL_DISP.get(units2["cort"], 27.6)
-    st.markdown("</div>", unsafe_allow_html=True)
+        units2 = dict(UNIT_PRESETS.get(upres2, UNIT_PRESETS["UK"]))
+        thr2disp = CORT_SEUIL_DISP.get(units2["cort"], 27.6)
 
     # Upload Drag & Drop
     uploaded_file = st.file_uploader(T("file_drop_label"), type=["csv", "xls", "xlsx"])
@@ -1197,13 +1179,13 @@ with tab2:
                 except: auc_h = (se_h + sp_h) / 2
 
                 # Metric Cards
-                st.markdown(f'<div class="clean-card"><div class="card-title">📊 Cohort Metrics & Statistical Performance</div>', unsafe_allow_html=True)
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("AUC Modèle 10-vars", f"{auc_m:.3f}", f"95% CI [{lo_a:.3f}–{hi_a:.3f}]")
-                m2.metric("Sensibilité (Se)", f"{se_m:.1%}", f"95% CI [{lo_se:.2f}–{hi_se:.2f}]")
-                m3.metric("Spécificité (Sp)", f"{sp_m:.1%}", f"95% CI [{lo_sp:.2f}–{hi_sp:.2f}]")
-                m4.metric("LDDST Seul (T8)", f"AUC {auc_h:.3f}", f"Se {se_h:.1%} / Sp {sp_h:.1%}")
-                st.markdown("</div>", unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.markdown("**📊 Cohort Metrics & Statistical Performance**")
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("AUC Modèle 10-vars", f"{auc_m:.3f}", f"95% CI [{lo_a:.3f}–{hi_a:.3f}]")
+                    m2.metric("Sensibilité (Se)", f"{se_m:.1%}", f"95% CI [{lo_se:.2f}–{hi_se:.2f}]")
+                    m3.metric("Spécificité (Sp)", f"{sp_m:.1%}", f"95% CI [{lo_sp:.2f}–{hi_sp:.2f}]")
+                    m4.metric("LDDST Seul (T8)", f"AUC {auc_h:.3f}", f"Se {se_h:.1%} / Sp {sp_h:.1%}")
 
                 # ROC Plot
                 fpr_m, tpr_m, _ = roc_curve(yt, pm)
