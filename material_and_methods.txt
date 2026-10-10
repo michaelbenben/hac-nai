@@ -1,0 +1,69 @@
+MATERIAL AND METHODS — Prédiction HAC vs NAI, modèle 10 variables SANS ACTHst (M10)
+==================================================================================
+Modèle recommandé : M10 LogReg ElasticNet (C=0.3, l1_ratio=0.3, solver saga).
+n=123 cas uniques (Casen dédupliqués ; 59 HAC / 64 NAI). Diagnostic indépendant du LDDST
+(pas de biais d'incorporation : ex. 2 cas HAC à suppression complète avec T3/T8 < 27.6).
+ACTHst et signes cliniques EXCLUS.
+
+1. LES 10 ENTRÉES BRUTES (unités d'entraînement UK/SI ; UK/US + variantes acceptées, conversion auto)
+-------------------------------------------------------------------------------------------------------------------------------
+1) T3 cortisol 3-4h (nmol/L ; US µg/dL, µg/L) — "< seuil" si censuré
+2) T8 cortisol 8h (idem ; seuil histo 27.6 = 1.0 µg/dL = 10 µg/L)
+3) Lymphocytes (x10^9/L = x10^3/µL ; /µL accepté ÷1000)
+4) Thrombocytes (idem)
+5) USG densité urinaire (sans unité, ex. 1.012 ; "> 1.050" accepté)
+6) Créatinine (µmol/L ; US mg/dL, variantes mg/L)
+7) Calcium total (mmol/L ; US mg/dL, variantes mg/L)
+8) Éosinophiles (x10^9/L, idem numérations)
+9) Ratio ALKP (x LSN, sans unité)
+10) Âge (années)
+Conversions vers UK avant modèle : cortisol ×27.59 (µg/dL) / ×2.759 (µg/L) ; créat ×88.4 / ×8.84 ;
+Ca ×0.2495 / ×0.02495 ; /µL ÷1000. Censure "< X" lue dans l'unité déclarée (X/2 puis conversion ;
+ex. < 27.6 nmol/L → 13.8, < 1.0 µg/dL → 13.795).
+Système déclaré par l'utilisateur (jamais de conversion silencieuse) + avertissements de plausibilité
+si ordres de grandeur incohérents ; en zone de recouvrement (ex. cortisol 15-30) on fait confiance
+à la déclaration. Règles anti-faux-positifs : en saisie unique la case « censuré » prime toujours (champ vidé +
+désactivé à la coche, valeur restaurée si décochée) et une valeur censurée/imputée (13.8)
+n'alimente jamais l'heuristique d'unités ; en batch les notations "< …" sont exclues
+de l'heuristique.
+Variables abandonnées car coef/importance nuls : T0, pattern, RatioALT, Neutro, Mono, Lipase,
+Urée, Phos, Glucose, Hct, K, BandNeut, sexe, stérilisation, Breed, urine sédiment.
+Note : pattern+bio SANS cortisol continu testé a posteriori (test_pattern_bio.py, même nested-CV) :
+0.959±0.030 vs M10 0.964±0.032, dAUC 0.002 [−0.019,+0.022] — le pattern porte le même signal LDDST
+que le continu (+0.06 vs bio seule 0.902) mais n'apporte rien au-delà ; le continu objectif reste le choix déployé.
+
+2. ENGINEERING (identique train/prédiction)
+-------------------------------------------
+- T3/T8 sous la limite → L/2 dans l'unité déclarée (=13.8 nmol/L si < 27.6) + flag T3_suppr/T8_suppr=1, sinon flag 0. log = ln(1+valeur).
+- USG "> 1.050" → 1.051 (pas de flag utile, abandonné). Bio : log1p (Eosino +0.01).
+- 12 colonnes modèle : logT8, T8_suppr, logT3, T3_suppr, log_Lymphocytes, log_Thrombocytes,
+  USG_val, log_Creatinine, Totalcalcium, log_Eosinophils, log_RatioALKP, Age.
+- Manquants : médiane du train + standardisation apprise sur train (pipeline sauvé).
+
+3. VALIDATION + SEUIL RÉGLABLE + RECALIBRATION AU DÉPÔT CSV
+------------------------------------------------------------
+- Nested-CV : outer RepeatedStratified 5-fold x10 (50 folds, seed 42), inner 3-fold GridSearch ROC-AUC.
+- M10 : AUC 0.964±0.032. Rappel F3 complet 28 vars : 0.950±0.039. LDDST seul T8>27.6 : Se 0.932 Sp 0.734 Acc 0.829 AUC 0.833.
+- Seuil de décision RÉGLABLE, défaut Youden = MaxAccuracy sur OOF single 5-fold
+  → proba ≥ 0.63 = HAC. OOF à 0.63 : Se 0.864, Sp 0.953, Acc 0.911.
+  Candidats : coin-sup-gauche 0.53 (0.881/0.922), Se=Sp 0.488 (0.881/0.875), 0.5 (0.881/0.891).
+- Recalibration proposée à chaque CSV avec Diagnosis (poids du modèle jamais ré-entraînés : Niveau 2 verrouillé) :
+  Niveau 0 seuil seul = Youden re-choisi en CV interne au nouveau fichier (dès ~5 cas/classe) ;
+  Niveau 1 Platt = logit(y) ~ a + b·logit(p) en CV (dès ~30 cas et 10/classe), avec intercept a
+  (0 idéal), pente b (1 idéal), probas recalibrées OOF et ROC avant/après ;
+  Niveau 2 ré-estimation complète verrouillée (<100 cas = masquée/déconseillée).
+  Params (a, b, seuil) exportés en JSON et réapplicables en saisie unique (toggle).
+   Python 3.11.5, sklearn 1.3.0.
+- Suppression T0-relative testée puis ÉCARTÉE (analyse_suppression_T0.py, rapport_suppression_T0.md) :
+  LDDST exhaustif seul 0.917 = F1 ; M10+LDDST 0.964 = M10, dAUC −0.009 [−0.033,+0.011] ;
+  seuil tuné en CV interne instable (0.2–0.8, sans optimum) ; logT8 et % suppression → importance 0.000
+  (signal dilué, biologie en tête). Règle standalone « aucune suppression → HAC » : VPP 0.939 à 50 %
+  mais Se 0.525 — M10 à 0.63 (Se 0.864/Sp 0.953) la domine sur les deux axes. T0 reste exclu du modèle.
+
+4. FICHIERS
+-----------
+- app_hac/modele_M10_logregEN.joblib + metadata_M10.json (ancien F3 gardé en fallback)
+- app_hac/app.py (10 champs), template généré (12 colonnes : Cas + 10 + Diagnostic/Diagnosis, unités entre crochets)
+- Limites : n=123 monocentrique 2017, référés LDDST, censure L/2 = hypothèse, seuil défaut 0.63
+  (réglable ; prévoir rule-out Se95 / rule-in Sp95 selon usage), validation externe sur nouvelle série
+  recommandée avec recalibration (voir §3). 2e avis, pas substitut.

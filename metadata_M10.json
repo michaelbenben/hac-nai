@@ -1,0 +1,55 @@
+{
+  "features": [
+    "logT8",
+    "T8_suppr",
+    "logT3",
+    "T3_suppr",
+    "log_Lymphocytes",
+    "log_Thrombocytes",
+    "USG_val",
+    "log_Creatinine",
+    "Totalcalcium",
+    "log_Eosinophils",
+    "log_RatioALKP",
+    "Age"
+  ],
+  "best_params": {
+    "clf__C": 0.3,
+    "clf__l1_ratio": 0.3
+  },
+  "seuil_T8_histo": 27.6,
+  "seuil_proba_defaut": 0.63,
+  "seuil_methode": "Youden (max Se+Sp) = MaxAccuracy sur OOF single 5-fold ; défaut réglable + recalibration proposée au dépôt CSV",
+  "seuil_candidats_OOF": {
+    "Youden_MaxAcc": {"seuil": 0.633, "Se": 0.864, "Sp": 0.953, "Acc": 0.911},
+    "Coin_sup_gauche": {"seuil": 0.53, "Se": 0.881, "Sp": 0.922, "Acc": 0.902},
+    "Se_egale_Sp": {"seuil": 0.488, "Se": 0.881, "Sp": 0.875, "Acc": 0.878},
+    "defaut_0.5": {"Se": 0.881, "Sp": 0.891, "Acc": 0.886}
+  },
+  "n_train": 123,
+  "raw_inputs_10": [
+    "T8_nmol_L",
+    "T3_nmol_L",
+    "Lymphocytes_x1e9_L",
+    "Thrombocytes_x1e9_L",
+    "USG",
+    "Creatinine_umol_L",
+    "Totalcalcium_mmol_L",
+    "Eosinophils_x1e9_L",
+    "RatioALKP_xLSN",
+    "Age_annees"
+  ],
+  "performances_nestedCV": {
+    "AUC_mean": 0.964,
+    "AUC_sd": 0.032,
+    "Acc": 0.889,
+    "Se": 0.873,
+    "Sp": 0.903
+  },
+  "performances_histo_T8": {
+    "Se": 0.932,
+    "Sp": 0.734,
+    "Acc": 0.829,
+    "AUC": 0.833
+  }
+}
