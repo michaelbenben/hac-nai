@@ -6,7 +6,6 @@ from LDDST + routine biology. Bilingual EN/FR, UK/US units.
 
 - Entry point: `app.py`
 - Model: `modele_M10_logregEN.joblib` + `metadata_M10.json`
-  (legacy F3 kept as fallback: `modele_F3_logregEN.joblib` + `metadata.json`)
 - Methods: `material_and_methods.txt`
 
 ## Run locally
