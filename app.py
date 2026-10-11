@@ -715,15 +715,15 @@ def build_template_df(unit, lang):
             ("Diagnostic" if FR else "Diagnosis")]
     if us:
         vals = [
-            [f"{pfx}1", 2.67, 6.45, 2.3, 426.0, 0.03, "1.025", 0.78, 12.18, 146.4, 6.0, "HAC"],
-            [f"{pfx}2", "< 1.0", "< 1.0", 2.5, 300.0, 0.3, "1.030", 1.02, 10.42, 2.0, 10.0, "NAI"],
-            [f"{pfx}3", 1.63, 1.27, 1.0, 500.0, 0.05, "> 1.050", 0.79, 11.22, 8.0, 11.0, "HAC"],
+            [1, 2.67, 6.45, 2.3, 426.0, 0.03, "1.025", 0.78, 12.18, 146.4, 6.0, "HAC"],
+            [2, "< 1.0", "< 1.0", 2.5, 300.0, 0.3, "1.030", 1.02, 10.42, 2.0, 10.0, "NAI"],
+            [3, 1.63, 1.27, 1.0, 500.0, 0.05, "> 1.050", 0.79, 11.22, 8.0, 11.0, "HAC"],
         ]
     else:
         vals = [
-            [f"{pfx}1", 73.7, 178.0, 2.3, 426.0, 0.03, "1.025", 69.0, 3.04, 146.4, 6.0, "HAC"],
-            [f"{pfx}2", "< 27.6", "< 27.6", 2.5, 300.0, 0.3, "1.030", 90.0, 2.6, 2.0, 10.0, "NAI"],
-            [f"{pfx}3", 45.0, 35.0, 1.0, 500.0, 0.05, "> 1.050", 70.0, 2.80, 8.0, 11.0, "HAC"],
+            [1, 73.7, 178.0, 2.3, 426.0, 0.03, "1.025", 69.0, 3.04, 146.4, 6.0, "HAC"],
+            [2, "< 27.6", "< 27.6", 2.5, 300.0, 0.3, "1.030", 90.0, 2.6, 2.0, 10.0, "NAI"],
+            [3, 45.0, 35.0, 1.0, 500.0, 0.05, "> 1.050", 70.0, 2.80, 8.0, 11.0, "HAC"],
         ]
     return pd.DataFrame(vals, columns=cols)
 
@@ -1038,11 +1038,6 @@ with tab2:
         _tbuf = io.BytesIO(); _edited.to_csv(_tbuf, index=False)
         st.download_button(T("btn_tmpl_download"), _tbuf.getvalue(),
                            f"template_HAC_NAI_{_tu}.csv", "text/csv", use_container_width=True)
-
-        with st.expander(f"🖼️ {T('guide_exp')}"):
-            _gp = os.path.join(BASE, f"guide_csv_structure_{st.session_state.lang}.png")
-            if os.path.exists(_gp):
-                st.image(_gp, use_container_width=True)
 
     # Unit & Calibration Options for File
     with st.container(border=True):
