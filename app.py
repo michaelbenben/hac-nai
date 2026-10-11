@@ -164,6 +164,10 @@ TR = {
     "btn_download_results": {"EN": "⬇️ Download Predictions (CSV)", "FR": "⬇️ Télécharger les Prédictions (CSV)"},
     "btn_download_recal": {"EN": "⬇️ Download Recalibration JSON", "FR": "⬇️ Télécharger les Paramètres de Recalibration (JSON)"},
     "upload_box_title": {"EN": "Upload your completed file", "FR": "Déposez votre fichier complété"},
+    "numbers_hint": {"EN": "CSV or Excel only (.csv, .xls, .xlsx). On Mac Numbers: File > Export To > CSV.",
+                     "FR": "CSV ou Excel uniquement (.csv, .xls, .xlsx). Sur Numbers (Mac) : Fichier > Exporter vers > CSV."},
+    "numbers_error": {"EN": "❌ Apple Numbers files (.numbers) can't be read directly. In Numbers: File > Export To > CSV (or Excel), then upload the exported file.",
+                      "FR": "❌ Les fichiers Apple Numbers (.numbers) ne sont pas lisibles directement. Dans Numbers : Fichier > Exporter vers > CSV (ou Excel), puis déposez le fichier exporté."},
     "units_detected": {"EN": "Units auto-detected from file headers: {units} ({system}). Conversion to training units is automatic.",
                        "FR": "Unités détectées automatiquement depuis les en-têtes : {units} ({system}). Conversion vers les unités d'entraînement automatique."},
     "units_mixed": {"EN": "Mixed/custom units detected from file headers: {units}. Conversion to training units is automatic.",
@@ -1130,9 +1134,13 @@ with tab2:
     # Upload Drag & Drop (fill the template above, then drop the file here)
     with st.container(border=True):
         st.markdown(f"**📤 {T('upload_box_title')}**")
-        uploaded_file = st.file_uploader(T("file_drop_label"), type=["csv", "xls", "xlsx"])
+        uploaded_file = st.file_uploader(T("file_drop_label"), type=["csv", "xls", "xlsx", "numbers"])
+        st.caption(T("numbers_hint"))
 
     if uploaded_file is not None:
+        if uploaded_file.name.lower().endswith(".numbers"):
+            st.error(T("numbers_error"))
+            st.stop()
         try:
             if uploaded_file.name.lower().endswith(".csv"):
                 try:
