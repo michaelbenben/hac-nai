@@ -6,6 +6,7 @@ Veterinary Endocrinology · Differentiation of Hyperadrenocorticism from Non-Adr
 Modern High-Clarity UI/UX · Web Streamlit Interface
 """
 import os, json, io, base64, textwrap
+import re
 import unicodedata
 import numpy as np
 import pandas as pd
@@ -162,6 +163,17 @@ TR = {
     "file_drop_label": {"EN": "Drag and drop your CSV or Excel file here", "FR": "Glissez-déposez votre fichier CSV ou Excel ici"},
     "btn_download_results": {"EN": "⬇️ Download Predictions (CSV)", "FR": "⬇️ Télécharger les Prédictions (CSV)"},
     "btn_download_recal": {"EN": "⬇️ Download Recalibration JSON", "FR": "⬇️ Télécharger les Paramètres de Recalibration (JSON)"},
+    "upload_box_title": {"EN": "Upload your completed file", "FR": "Déposez votre fichier complété"},
+    "units_detected": {"EN": "Units auto-detected from file headers: {units} ({system}). Conversion to training units is automatic.",
+                       "FR": "Unités détectées automatiquement depuis les en-têtes : {units} ({system}). Conversion vers les unités d'entraînement automatique."},
+    "units_mixed": {"EN": "Mixed/custom units detected from file headers: {units}. Conversion to training units is automatic.",
+                    "FR": "Unités mixtes/personnalisées détectées depuis les en-têtes : {units}. Conversion vers les unités d'entraînement automatique."},
+    "units_fallback": {"EN": "No units found in headers — select the file unit system manually (must match the template used).",
+                       "FR": "Aucune unité trouvée dans les en-têtes — sélectionnez manuellement le système d'unités du fichier (celui du template utilisé)."},
+    "units_partial": {"EN": "Partial detection ({found}/{total}) — missing: {missing}. Check headers or force manually below.",
+                      "FR": "Détection partielle ({found}/{total}) — manquants : {missing}. Vérifiez les en-têtes ou forcez manuellement ci-dessous."},
+    "manual_override": {"EN": "⚙️ Manual override (if detection is wrong)", "FR": "⚙️ Forçage manuel (si la détection est fausse)"},
+    "thresh_title": {"EN": "Decision threshold", "FR": "Seuil décisionnel"},
     
     # Footer
     "disclaimer": {"EN": "Clinical Decision Support System. Developed for veterinary practitioners. For research and clinical assistance — always correlate with complete physical examination, history, and imaging.",
@@ -646,6 +658,82 @@ def find_col(columns, *aliases):
                 return orig
     return None
 
+def _norm_unit_token(tok):
+    """Normalize a unit token for robust matching (µ→u, ×→x, superscripts→digits)."""
+    s = str(tok).strip().replace("µ", "u").replace("μ", "u").replace("×", "x").replace("X", "x")
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return s.replace(" ", "").replace("^", "").lower()
+
+_UNIT_LOOKUP = {}
+for _kind, _map in UNIT_FACTORS.items():
+    for _canon in _map:
+        # keep first (pretty) canonical on normalized collision: µg/dL beats ug/dL, etc.
+        _UNIT_LOOKUP.setdefault(_kind, {}).setdefault(_norm_unit_token(_canon), _canon)
+
+def _canon_unit(tok, kind):
+    """Map a raw bracket token to a canonical unit for `kind`, or None."""
+    if tok is None:
+        return None
+    return _UNIT_LOOKUP.get(kind, {}).get(_norm_unit_token(tok))
+
+def _bracket_unit(header):
+    m = re.search(r"\[(.*?)\]", str(header))
+    return m.group(1).strip() if m else None
+
+def detect_file_units(columns):
+    """Auto-detect per-variable units from file headers' [brackets].
+
+    Returns (units_dict, info) where info maps kind -> (canonical_or_None, header_or_None).
+    Falls back per-kind to UK preset when no recognizable bracket is found."""
+    cols = [str(c).strip() for c in columns]
+    def get(*names):
+        return find_col(cols, *names)
+    cT = get("T8", "T3", "cortisol") or get("T3")
+    cCr = get("Creatinine", "creatinine")
+    cCa = get("calcium", "Totalcalcium", "totalcalcium")
+    cLy = get("Lymphocytes", "lymphocytes")
+    cTh = get("Thrombocytes", "thrombocytes")
+    cEo = get("eosinophil", "Eosinophils", "eosinophils")
+    units = dict(UNIT_PRESETS["UK"])
+    info = {}
+    # Cortisol: prefer T8 header, else T3
+    cort_tok = _bracket_unit(cT) if cT else None
+    cort_u = _canon_unit(cort_tok, "cort")
+    if cort_u:
+        units["cort"] = cort_u
+    info["cort"] = (cort_u, cT)
+    # Creatinine
+    crea_tok = _bracket_unit(cCr) if cCr else None
+    crea_u = _canon_unit(crea_tok, "crea")
+    if crea_u:
+        units["crea"] = crea_u
+    info["crea"] = (crea_u, cCr)
+    # Calcium
+    ca_tok = _bracket_unit(cCa) if cCa else None
+    ca_u = _canon_unit(ca_tok, "ca")
+    if ca_u:
+        units["ca"] = ca_u
+    info["ca"] = (ca_u, cCa)
+    # Counts: majority vote across Lymph/Thr/Eos headers
+    votes = []
+    for cc in (cLy, cTh, cEo):
+        t = _bracket_unit(cc) if cc else None
+        u = _canon_unit(t, "counts")
+        if u:
+            votes.append(u)
+    if votes:
+        units["counts"] = max(set(votes), key=votes.count)
+    info["counts"] = (units["counts"] if votes else None, None)
+    return units, info
+
+def _units_system_name(units):
+    if units == UNIT_PRESETS["UK"]:
+        return "UK / SI"
+    if units == UNIT_PRESETS["US"]:
+        return "US"
+    return "mixed"
+
 def _uk_num(x, kind, unit):
     try:
         if x is None or (isinstance(x, str) and x.strip() == ""):
@@ -1039,23 +1127,10 @@ with tab2:
         st.download_button(T("btn_tmpl_download"), _tbuf.getvalue(),
                            f"template_HAC_NAI_{_tu}.csv", "text/csv", use_container_width=True)
 
-    # Unit & Calibration Options for File
+    # Upload Drag & Drop (fill the template above, then drop the file here)
     with st.container(border=True):
-        st.markdown(f"**⚙️ {T('u_file')}**")
-        _uc1, _uc2, _uc3 = st.columns([1.2, 1.5, 1])
-        with _uc1:
-            upres2 = st.radio(T("u_file"), ["UK", "US"], index=0, horizontal=True,
-                              format_func=lambda x: T("u_uk") if x == "UK" else T("u_us"), key="upres2", label_visibility="collapsed")
-        with _uc2:
-            seuil2 = st.slider(T("slider2"), 0.1, 0.9, SEUIL_DEFAUT, 0.01, key="s2")
-        with _uc3:
-            recal_opt = st.selectbox(T("recal_lab"), [T("r_auto"), T("r_seuil"), T("r_platt"), T("r_none")], index=0)
-
-        units2 = dict(UNIT_PRESETS.get(upres2, UNIT_PRESETS["UK"]))
-        thr2disp = CORT_SEUIL_DISP.get(units2["cort"], 27.6)
-
-    # Upload Drag & Drop
-    uploaded_file = st.file_uploader(T("file_drop_label"), type=["csv", "xls", "xlsx"])
+        st.markdown(f"**📤 {T('upload_box_title')}**")
+        uploaded_file = st.file_uploader(T("file_drop_label"), type=["csv", "xls", "xlsx"])
 
     if uploaded_file is not None:
         try:
@@ -1072,6 +1147,41 @@ with tab2:
             st.stop()
 
         df_in.columns = [str(c).strip() for c in df_in.columns]
+
+        # Auto-detect file units from headers' [brackets] (template carries them)
+        units2_auto, _uinfo = detect_file_units(list(df_in.columns))
+        _n_found = sum(1 for _k in ("cort", "crea", "ca", "counts") if _uinfo[_k][0])
+        _sys = _units_system_name(units2_auto)
+        if _n_found == 4:
+            if _sys in ("UK / SI", "US"):
+                st.success("✅ " + T("units_detected").format(units=", ".join(units2_auto.values()), system=_sys))
+            else:
+                st.success("✅ " + T("units_mixed").format(units=", ".join(units2_auto.values())))
+        elif _n_found == 0:
+            st.warning("⚠️ " + T("units_fallback"))
+        else:
+            _missing = ", ".join([_k for _k in ("cort", "crea", "ca", "counts") if not _uinfo[_k][0]])
+            st.warning("⚠️ " + T("units_partial").format(found=_n_found, total=4, missing=_missing))
+
+        with st.expander(T("manual_override")):
+            _ov = st.radio(T("manual_override"), ["auto", "UK", "US"], index=0, horizontal=True,
+                           format_func=lambda x: {"auto": "Auto", "UK": T("u_uk"), "US": T("u_us")}.get(x, x),
+                           key="upres2_ov")
+            if _ov in ("UK", "US"):
+                units2 = dict(UNIT_PRESETS[_ov])
+                st.caption(f"Forced: {', '.join(units2.values())}")
+            else:
+                units2 = dict(units2_auto)
+                st.caption(f"{', '.join(units2.values())}")
+
+        # Decision threshold (applies to the detected units above)
+        with st.container(border=True):
+            st.markdown(f"**🎚️ {T('thresh_title')}**")
+            seuil2 = st.slider(T("threshold_slider_label"), 0.1, 0.9, SEUIL_DEFAUT, 0.01, key="s2",
+                               help=T("threshold_help"))
+
+        thr2disp = CORT_SEUIL_DISP.get(units2["cort"], 27.6)
+
         def get_col(*names):
             return find_col(list(df_in.columns), *names)
 
